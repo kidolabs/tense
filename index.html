@@ -1031,6 +1031,71 @@
     .pp-review-item.rv-wrong { border-left:4px solid #F44336; }
     .pp-review-item .rv-q { font-weight:600; margin-bottom:5px; }
     .pp-review-item .rv-a { font-size:0.9rem; color:#555; }
+
+    /* QuickNote - Simple */
+    .qn-container { padding-bottom: 20px; }
+    .qn-header { text-align: center; margin-bottom: 15px; }
+    .qn-title { font-size: 1.8rem; font-weight: 800; color: white; text-shadow: 2px 2px 0 rgba(0,0,0,0.2); }
+    .qn-subtitle { color: rgba(255,255,255,0.9); margin-top: 5px; font-size: 0.9rem; }
+    .qn-add-box {
+      background: white; border-radius: 20px; padding: 18px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 15px;
+    }
+    .qn-textarea {
+      width: 100%; min-height: 100px; padding: 14px; border: 3px solid #E0E0E0;
+      border-radius: 14px; font-family: 'Nunito', sans-serif; font-size: 1rem;
+      outline: none; resize: vertical; line-height: 1.6; transition: border-color 0.2s;
+    }
+    .qn-textarea:focus { border-color: #667eea; }
+    .qn-textarea::placeholder { color: #bbb; }
+    .qn-save-btn {
+      width: 100%; padding: 14px; border: none; border-radius: 50px; margin-top: 12px;
+      background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+      font-size: 1.1rem; font-weight: 700; cursor: pointer;
+      font-family: 'Nunito', sans-serif; transition: all 0.2s;
+    }
+    .qn-save-btn:hover { transform: translateY(-2px); }
+    .qn-save-btn:active { transform: scale(0.98); }
+    .qn-list { display: flex; flex-direction: column; gap: 12px; }
+    .qn-card {
+      background: white; border-radius: 16px; padding: 16px 18px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.1); position: relative;
+    }
+    .qn-card-text {
+      font-size: 0.95rem; color: #333; line-height: 1.7;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .qn-card-text a {
+      color: #667eea; text-decoration: none; word-break: break-all;
+    }
+    .qn-card-text a:hover { text-decoration: underline; }
+    .qn-card-date {
+      font-size: 0.75rem; color: #bbb; margin-top: 10px;
+    }
+    .qn-card-actions {
+      display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+    }
+    .qn-action-btn {
+      padding: 7px 14px; border-radius: 20px; border: none;
+      font-family: 'Nunito', sans-serif; font-size: 0.82rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .qn-copy-btn { background: #E8F5E9; color: #2E7D32; }
+    .qn-copy-btn:hover { background: #C8E6C9; }
+    .qn-open-btn { background: #E3F2FD; color: #1565C0; }
+    .qn-open-btn:hover { background: #BBDEFB; }
+    .qn-delete-btn { background: #FFEBEE; color: #C62828; }
+    .qn-delete-btn:hover { background: #FFCDD2; }
+    .qn-empty {
+      text-align: center; padding: 40px 20px;
+      background: rgba(255,255,255,0.1); border-radius: 20px;
+    }
+    .qn-empty-icon { font-size: 3rem; margin-bottom: 10px; }
+    .qn-empty-text { color: rgba(255,255,255,0.8); font-size: 1rem; }
+    .qn-count {
+      text-align: center; color: rgba(255,255,255,0.7);
+      font-size: 0.85rem; margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -1080,6 +1145,10 @@
             <div class="topic-icon">📚</div>
             <div class="topic-name">Học kiến thức</div>
           </div>
+          <div class="topic-card" onclick="showQuickNoteScreen()" style="border-color:#9C27B0;background:linear-gradient(135deg,#F3E5F5,#fff)">
+            <div class="topic-icon">📌</div>
+            <div class="topic-name">Quick Note</div>
+          </div>
         </div>
         
         <div id="motivationalMsg" style="margin-top:10px;padding:10px 15px;background:rgba(255,255,255,0.15);border-radius:12px;text-align:center;color:white;font-size:0.85rem;line-height:1.4;backdrop-filter:blur(5px)">
@@ -1106,6 +1175,11 @@
       <div class="container">
         <div id="quizArea"></div>
       </div>
+    </div>
+
+    <!-- QUICKNOTE SCREEN -->
+    <div id="quickNoteScreen" class="screen">
+      <div id="quickNoteArea"></div>
     </div>
   </div>
 
@@ -6740,6 +6814,167 @@ function ppShowResult() {
       if (mistakes.length > 100) mistakes = mistakes.slice(-100);
       localStorage.setItem('mistakes', JSON.stringify(mistakes));
     } catch(e) {}
+  });
+}
+
+// ============ QUICKNOTE (Simple Note + Google Sheets Sync) ============
+var qnNotes = [];
+var qnLoading = false;
+
+// ⚠️ THAY URL NÀY bằng URL Web App sau khi deploy Google Apps Script
+var QN_API = 'https://script.google.com/macros/s/AKfycbxypiSi0OUnN6Ng9EK6_1cJdSwg11GnfXJSB98uSW-MkhcNAdWwdzhPg4-54UBcd_s/exec';
+
+function showQuickNoteScreen() {
+  document.getElementById('appContainer').className = 'app-container bg-fun';
+  if (!QN_API) {
+    document.getElementById('quickNoteArea').innerHTML =
+      '<div class="qn-container">' +
+      '<div style="text-align:left;margin-bottom:10px"><button class="back-btn" onclick="goHome()">← Home</button></div>' +
+      '<div class="qn-add-box" style="text-align:center">' +
+      '<div style="font-size:3rem;margin-bottom:15px">⚙️</div>' +
+      '<h3 style="color:#333;margin-bottom:15px">Cần thiết lập Google Sheets</h3>' +
+      '<div style="color:#666;font-size:0.95rem;line-height:1.6;text-align:left">' +
+      '<p style="margin-bottom:12px"><b>1.</b> Mở Google Sheets, tạo sheet mới</p>' +
+      '<p style="margin-bottom:12px"><b>2.</b> Extensions → Apps Script → dán code từ file gas-quicknote.js</p>' +
+      '<p style="margin-bottom:12px"><b>3.</b> Deploy → New deployment → Web app (Anyone)</p>' +
+      '<p style="margin-bottom:12px"><b>4.</b> Copy URL → dán vào <code>QN_API</code> trong index.html</p>' +
+      '</div></div></div>';
+    showScreen('quickNoteScreen');
+    return;
+  }
+  qnFetchNotes();
+  showScreen('quickNoteScreen');
+}
+
+function qnFetchNotes() {
+  qnLoading = true;
+  renderQuickNote();
+  fetch(QN_API + '?action=getAll')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        qnNotes = data.notes || [];
+        try { localStorage.setItem('quickNotes', JSON.stringify(qnNotes)); } catch(e){}
+      } else {
+        try { qnNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]'); } catch(e) { qnNotes = []; }
+      }
+      qnLoading = false;
+      renderQuickNote();
+    })
+    .catch(function() {
+      try { qnNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]'); } catch(e) { qnNotes = []; }
+      qnLoading = false;
+      renderQuickNote();
+    });
+}
+
+function qnPost(action, data, cb) {
+  var body = { action: action };
+  if (data) Object.keys(data).forEach(function(k) { body[k] = data[k]; });
+  fetch(QN_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body)
+  }).then(function(r) { return r.json(); }).then(function(d) { if(cb) cb(d); }).catch(function() { if(cb) cb({success:false}); });
+}
+
+function renderQuickNote() {
+  var notes = qnNotes;
+  var html = '<div class="qn-container">' +
+    '<div style="text-align:left;margin-bottom:10px;display:flex;align-items:center;gap:10px">' +
+    '<button class="back-btn" onclick="goHome()">← Home</button>' +
+    '<button class="back-btn" onclick="qnFetchNotes()" style="margin-left:auto">🔄</button></div>' +
+    '<div class="qn-header"><div class="qn-title">📌 Quick Note</div>' +
+    '<div class="qn-subtitle">Ghi chú & link học tập</div></div>';
+
+  if (qnLoading) {
+    html += '<div class="qn-empty"><div class="qn-empty-icon">⏳</div><div class="qn-empty-text">Đang tải...</div></div></div>';
+    document.getElementById('quickNoteArea').innerHTML = html;
+    return;
+  }
+
+  // Simple textarea to add note
+  html += '<div class="qn-add-box">' +
+    '<textarea class="qn-textarea" id="qnText" placeholder="Ghi chú hoặc dán link vào đây...&#10;&#10;VD:&#10;https://example.com&#10;Học Present Perfect bài 3"></textarea>' +
+    '<button class="qn-save-btn" id="qnSaveBtn" onclick="qnSave()">📌 Thêm ghi chú</button></div>';
+
+  // Notes list
+  if (notes.length === 0) {
+    html += '<div class="qn-empty"><div class="qn-empty-icon">📝</div>' +
+      '<div class="qn-empty-text">Chưa có ghi chú nào</div></div>';
+  } else {
+    html += '<div class="qn-count">' + notes.length + ' ghi chú</div><div class="qn-list">';
+    notes.forEach(function(n, idx) {
+      var links = qnExtractLinks(n.text || '');
+      var displayText = qnLinkify(qnEsc(n.text || ''));
+      html += '<div class="qn-card">' +
+        '<div class="qn-card-text">' + displayText + '</div>' +
+        '<div class="qn-card-date">' + (n.date || '') + '</div>' +
+        '<div class="qn-card-actions">' +
+        '<button class="qn-action-btn qn-copy-btn" onclick="qnCopy(' + idx + ')">📋 Copy</button>';
+      links.forEach(function(link, li) {
+        html += '<button class="qn-action-btn qn-open-btn" onclick="window.open(\'' + qnEsc(link) + '\',\'_blank\')">🔗 Mở link' + (links.length > 1 ? ' ' + (li+1) : '') + '</button>';
+      });
+      html += '<button class="qn-action-btn qn-delete-btn" onclick="qnDel(' + idx + ')">🗑</button>' +
+        '</div></div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById('quickNoteArea').innerHTML = html;
+}
+
+function qnEsc(s) {
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s || ''));
+  return d.innerHTML;
+}
+
+function qnExtractLinks(text) {
+  var regex = /https?:\/\/[^\s<>"']+/g;
+  return text.match(regex) || [];
+}
+
+function qnLinkify(escapedText) {
+  return escapedText.replace(/(https?:\/\/[^\s<>&"']+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
+function qnSave() {
+  var text = document.getElementById('qnText').value.trim();
+  if (!text) return;
+  var btn = document.getElementById('qnSaveBtn');
+  if (btn) { btn.textContent = '⏳ Đang lưu...'; btn.disabled = true; }
+  qnPost('add', {
+    text: text,
+    date: new Date().toLocaleDateString('vi-VN')
+  }, function() {
+    playSound('correct');
+    qnFetchNotes();
+  });
+}
+
+function qnCopy(idx) {
+  var text = qnNotes[idx] && qnNotes[idx].text || '';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      var btns = document.querySelectorAll('.qn-copy-btn');
+      if (btns[idx]) { btns[idx].textContent = '✅ Copied!'; setTimeout(function(){ btns[idx].textContent = '📋 Copy'; }, 1500); }
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    var btns = document.querySelectorAll('.qn-copy-btn');
+    if (btns[idx]) { btns[idx].textContent = '✅ Copied!'; setTimeout(function(){ btns[idx].textContent = '📋 Copy'; }, 1500); }
+  }
+}
+
+function qnDel(idx) {
+  if (!confirm('Xoá ghi chú này?')) return;
+  qnPost('delete', { row: idx }, function() {
+    playSound('wrong');
+    qnFetchNotes();
   });
 }
 </script>
